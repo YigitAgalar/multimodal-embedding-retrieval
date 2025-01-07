@@ -5,6 +5,10 @@ import tensorflow as tf
 from typing import Dict, Tuple
 import numpy as np
 
+# Enable mixed precision for better GPU performance
+tf.keras.mixed_precision.set_global_policy('mixed_float16')
+
+@tf.function(jit_compile=True)
 def contrastive_loss(similarity):
     """Compute contrastive loss for image-text pairs."""
     # Create labels (diagonal indices)
@@ -27,6 +31,7 @@ def contrastive_loss(similarity):
     # Average both directions
     return (loss_i2t + loss_t2i) / 2.0
 
+@tf.function(jit_compile=True)
 def compute_recall_at_k(similarity, labels, k):
     """Compute recall@k for both image-to-text and text-to-image."""
     batch_size = tf.shape(similarity)[0]
@@ -50,7 +55,7 @@ def compute_recall_at_k(similarity, labels, k):
     )
     t2i_recall = tf.reduce_mean(tf.cast(t2i_correct, tf.float32))
     
-    return i2t_recall, t2i_recall
+    return (i2t_recall + t2i_recall) / 2.0
 
 class MultimodalTrainer:
     """Training manager for multimodal embedding model."""
@@ -63,11 +68,13 @@ class MultimodalTrainer:
     ):
         self.model = model
         
-        # Setup optimizer with weight decay
-        self.optimizer = tf.keras.optimizers.AdamW(
+        # Use AMP (Automatic Mixed Precision) optimizer
+        optimizer = tf.keras.optimizers.AdamW(
             learning_rate=learning_rate,
-            weight_decay=weight_decay
+            weight_decay=weight_decay,
+            jit_compile=True
         )
+        self.optimizer = tf.keras.mixed_precision.LossScaleOptimizer(optimizer)
     
     def compute_metrics(
         self,
@@ -103,31 +110,35 @@ class MultimodalTrainer:
         
         return metrics
     
-    @tf.function
+    @tf.function(jit_compile=True)
     def train_step(
         self,
         batch: Dict[str, tf.Tensor]
     ) -> Tuple[tf.Tensor, Dict[str, tf.Tensor]]:
-        """Single training step."""
+        """Optimized training step with XLA and AMP."""
         with tf.GradientTape() as tape:
             # Forward pass
-            outputs = self.model(batch)
-            similarity = self.model.compute_similarity(
-                outputs['image_embeddings'],
-                outputs['text_embeddings']
-            )
+            image_features = self.model.encode_image(batch["image"])
+            text_features = self.model.encode_text(batch["text"])
+            
+            # Compute similarity
+            similarity = tf.matmul(image_features, text_features, transpose_b=True)
+            similarity = similarity * tf.exp(self.model.logit_scale)
             
             # Compute loss
             loss = contrastive_loss(similarity)
-            loss = tf.reduce_mean(loss)
+            scaled_loss = self.optimizer.get_scaled_loss(loss)
         
-        # Compute gradients and update weights
-        gradients = tape.gradient(loss, self.model.trainable_variables)
+        # Compute gradients
+        scaled_gradients = tape.gradient(scaled_loss, self.model.trainable_variables)
+        gradients = self.optimizer.get_unscaled_gradients(scaled_gradients)
+        
+        # Apply gradients
         self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
         
         # Compute metrics
         metrics = self.compute_metrics(similarity)
-        metrics['loss'] = loss
+        metrics["loss"] = loss
         
         return loss, metrics
     

@@ -9,6 +9,9 @@ import tensorflow as tf
 from PIL import Image
 import io
 
+# Enable mixed precision for better GPU performance
+tf.keras.mixed_precision.set_global_policy('mixed_float16')
+
 class MultimodalDataset:
     def __init__(
         self,
@@ -30,6 +33,9 @@ class MultimodalDataset:
         
         # Create cache directory
         self.cache_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Set up CUDA-optimized configuration
+        self.autotune = tf.data.AUTOTUNE
         
     def load_data(self) -> Dataset:
         """Load dataset from Hugging Face hub."""
@@ -139,25 +145,28 @@ class MultimodalDataset:
         return result
     
     def prepare_tf_dataset(self, dataset: Dataset, shuffle: bool = False) -> tf.data.Dataset:
-        """Convert a Hugging Face dataset to a TensorFlow dataset."""
-        # Apply preprocessing with progress bar
-        dataset = dataset.map(
+        """Prepare TensorFlow dataset with CUDA optimization."""
+        tf_dataset = tf.data.Dataset.from_tensor_slices(dataset)
+        
+        if shuffle:
+            tf_dataset = tf_dataset.shuffle(
+                buffer_size=10000,
+                seed=self.seed,
+                reshuffle_each_iteration=True
+            )
+        
+        # Apply preprocessing with GPU acceleration
+        tf_dataset = tf_dataset.map(
             self.preprocess_function,
-            batched=True,
-            remove_columns=dataset.column_names,
-            desc="Preprocessing dataset",
-            load_from_cache_file=True
+            num_parallel_calls=self.autotune
         )
         
-        # Convert to TensorFlow dataset
-        tf_dataset = dataset.to_tf_dataset(
-            columns=["image", "text"],
-            shuffle=shuffle,
-            batch_size=self.batch_size,
-            collate_fn=self.collate_fn
-        )
+        # Optimize performance
+        tf_dataset = tf_dataset.cache()
+        tf_dataset = tf_dataset.batch(self.batch_size)
+        tf_dataset = tf_dataset.prefetch(self.autotune)
         
-        return tf_dataset.prefetch(tf.data.AUTOTUNE)
+        return tf_dataset
     
     def collate_fn(self, examples):
         """Collate function for batching."""

@@ -6,6 +6,19 @@ from pathlib import Path
 import json
 from tqdm import tqdm
 
+# Configure GPU settings
+gpus = tf.config.list_physical_devices('GPU')
+if gpus:
+    try:
+        # Enable memory growth for all GPUs
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+        print(f"Found {len(gpus)} GPU(s). GPU support enabled.")
+    except RuntimeError as e:
+        print(f"Error configuring GPUs: {e}")
+else:
+    print("No GPUs found. Running on CPU.")
+
 from derin_ogrenme.data.dataset import MultimodalDataset
 from derin_ogrenme.models.encoders import MultimodalEmbedding
 from derin_ogrenme.models.training import MultimodalTrainer

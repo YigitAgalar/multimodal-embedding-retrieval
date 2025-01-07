@@ -5,8 +5,10 @@ import tensorflow as tf
 from typing import Dict, Tuple
 import numpy as np
 
-# Enable mixed precision for better GPU performance
-tf.keras.mixed_precision.set_global_policy('mixed_float16')
+# Configure TensorFlow for GPU optimization
+tf.config.optimizer.set_jit(True)  # Enable XLA optimization
+tf.config.threading.set_inter_op_parallelism_threads(2)
+tf.config.threading.set_intra_op_parallelism_threads(4)
 
 @tf.function(jit_compile=True)
 def contrastive_loss(similarity):

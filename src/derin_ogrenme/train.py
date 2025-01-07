@@ -13,11 +13,22 @@ if gpus:
         # Enable memory growth for all GPUs
         for gpu in gpus:
             tf.config.experimental.set_memory_growth(gpu, True)
-        print(f"Found {len(gpus)} GPU(s). GPU support enabled.")
+        
+        # Set GPU as the default device
+        tf.config.set_visible_devices(gpus[0], 'GPU')
+        tf.config.experimental.set_memory_growth(gpus[0], True)
+        
+        # Enable mixed precision globally
+        tf.keras.mixed_precision.set_global_policy('mixed_float16')
+        
+        print(f"Found {len(gpus)} GPU(s). GPU support enabled with mixed precision.")
+        print(f"Using GPU: {tf.config.get_visible_devices('GPU')[0].name}")
     except RuntimeError as e:
         print(f"Error configuring GPUs: {e}")
 else:
     print("No GPUs found. Running on CPU.")
+    # Set memory growth to avoid memory fragmentation
+    tf.config.set_soft_device_placement(True)
 
 from derin_ogrenme.data.dataset import MultimodalDataset
 from derin_ogrenme.models.encoders import MultimodalEmbedding

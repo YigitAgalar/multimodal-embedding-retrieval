@@ -4,10 +4,10 @@ version = "0.1.0"
 description = "Deep Learning Project"
 requires-python = ">=3.10"
 dependencies = [
-    "tensorflow==2.15.0",
+    "tensorflow[gpu]==2.18.0",
     "numpy>=1.26.4",
-    "keras==2.15.0",
-    "tensorboard==2.15.2",
+    "keras==2.18.0",
+    "tensorboard==2.18.0",
     "datasets>=2.18.0",
     "transformers>=4.38.1",
     "pillow>=10.2.0",
@@ -15,6 +15,9 @@ dependencies = [
     "scikit-learn>=1.4.0",
     "matplotlib>=3.8.0",
     "seaborn>=0.13.2",
+    "nvidia-cudnn-cu12>=8.9.0",
+    "nvidia-cuda-runtime-cu12>=12.1.105",
+    "nvidia-cuda-nvcc-cu12>=12.1.105",
 ]
 
 [build-system]

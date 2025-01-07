@@ -37,7 +37,6 @@ venv.bak/
 .DS_Store
 
 # Project specific
-data/
 data/cache/
 wandb/
 *.weights.h5
@@ -51,6 +50,8 @@ wandb/
 *.npz
 *.pkl
 *.pickle
+*.arrow
+*.arrow.zstd
 
 # Jupyter Notebook
 .ipynb_checkpoints

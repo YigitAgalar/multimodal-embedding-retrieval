@@ -8,8 +8,6 @@ from datasets import load_dataset, Dataset
 import tensorflow as tf
 from PIL import Image
 import io
-from transformers import DataCollatorWithPadding
-from tqdm.auto import tqdm
 
 class MultimodalDataset:
     def __init__(
@@ -19,7 +17,7 @@ class MultimodalDataset:
         val_size: float = 0.1,
         test_size: float = 0.1,
         batch_size: int = 32,
-        max_samples: int = 1000,
+        max_samples: int = None,
         seed: int = 42
     ):
         self.dataset_name = dataset_name
@@ -35,34 +33,52 @@ class MultimodalDataset:
         
     def load_data(self) -> Dataset:
         """Load dataset from Hugging Face hub."""
+        # Load the dataset
         dataset = load_dataset(
             self.dataset_name,
             cache_dir=str(self.cache_dir)
         )
         
-        # If dataset only has 'train' split, create validation and test splits
-        if len(dataset) == 1 and 'train' in dataset:
-            # Limit dataset size
-            if self.max_samples:
-                dataset = dataset.shuffle(seed=self.seed)
-                dataset['train'] = dataset['train'].select(range(min(self.max_samples, len(dataset['train']))))
-            
-            # First split off the test set
-            dataset = dataset['train'].train_test_split(
-                test_size=self.test_size,
-                seed=self.seed
-            )
-            # Then split the remaining train into train and validation
-            train_val = dataset['train'].train_test_split(
-                test_size=self.val_size/(1-self.test_size),
-                seed=self.seed
-            )
-            # Create a new dataset dictionary with all splits
-            dataset = {
-                'train': train_val['train'],
-                'validation': train_val['test'],
-                'test': dataset['test']
-            }
+        # Get the training split
+        if isinstance(dataset, dict):
+            train_data = dataset['train']
+        else:
+            train_data = dataset
+        
+        # Shuffle and limit size if specified
+        if self.max_samples:
+            print(f"\nLimiting dataset to {self.max_samples} samples")
+            train_data = train_data.shuffle(seed=self.seed)
+            train_data = train_data.select(range(min(self.max_samples, len(train_data))))
+        
+        # Split into train/val/test
+        test_size = int(len(train_data) * self.test_size)
+        val_size = int(len(train_data) * self.val_size)
+        
+        # Create splits
+        splits = train_data.train_test_split(
+            test_size=test_size + val_size,
+            seed=self.seed
+        )
+        
+        # Further split the test portion into validation and test
+        val_test_splits = splits['test'].train_test_split(
+            test_size=test_size / (test_size + val_size),
+            seed=self.seed
+        )
+        
+        # Create final dataset dictionary
+        dataset = {
+            'train': splits['train'],
+            'validation': val_test_splits['train'],
+            'test': val_test_splits['test']
+        }
+        
+        # Print split sizes
+        print("\nDataset split sizes:")
+        for split_name, split_data in dataset.items():
+            print(f"{split_name}: {len(split_data)} examples")
+        
         return dataset
     
     def preprocess_image(self, image) -> tf.Tensor:
@@ -94,24 +110,22 @@ class MultimodalDataset:
             else:
                 raise ValueError(f"Unsupported image type: {type(image)}")
             
-            # Ensure image is float32 and in [0, 1]
+            # Convert to tensor and normalize
             image = tf.convert_to_tensor(image, dtype=tf.float32)
             if tf.reduce_max(image) > 1.0:
                 image = image / 255.0
-                
-            # Resize
+            
+            # Resize to target size
             image = tf.image.resize(image, (224, 224))
             
             return image
             
         except Exception as e:
             print(f"Error processing image: {e}")
-            # Return a blank image in case of error
             return tf.zeros((224, 224, 3), dtype=tf.float32)
     
     def preprocess_text(self, text: str) -> str:
         """Preprocess text for the model."""
-        # Basic text preprocessing
         if not isinstance(text, str):
             text = str(text)
         return text.lower().strip()

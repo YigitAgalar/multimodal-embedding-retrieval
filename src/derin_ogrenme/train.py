@@ -14,20 +14,20 @@ def train(
     # Data parameters
     dataset_name: str = "ashraq/fashion-product-images-small",
     cache_dir: str = "data/cache",
-    batch_size: int = 32,  # Larger batch size for simpler model
+    batch_size: int = 32,
     max_samples: int = 1000,  # Using 1000 samples
     
     # Model parameters
-    embedding_dim: int = 128,  # Smaller embedding dimension for simpler model
+    embedding_dim: int = 128,  # Smaller embedding dimension
     
     # Training parameters
-    num_epochs: int = 30,  # More epochs for simpler model
-    learning_rate: float = 1e-3,  # Higher learning rate for simpler model
-    weight_decay: float = 0.0001,  # Less regularization for simpler model
+    num_epochs: int = 30,
+    learning_rate: float = 1e-3,
+    weight_decay: float = 0.0001,
     
     # Output parameters
     output_dir: str = "outputs",
-    model_name: str = "basic_multimodal_embedding"  # Updated model name
+    model_name: str = "basic_multimodal_embedding"
 ):
     """Train a basic multimodal embedding model."""
     
@@ -62,7 +62,7 @@ def train(
     train_ds, val_ds, test_ds = dataset.get_train_val_test_splits()
     
     # Create model and trainer
-    print("\nInitializing model...")
+    print("\nInitializing enhanced model...")
     print(f"Embedding dimension: {embedding_dim}")
     model = MultimodalEmbedding(embedding_dim=embedding_dim)
     trainer = MultimodalTrainer(
@@ -75,8 +75,8 @@ def train(
     print("\nStarting training...")
     print(f"Training for {num_epochs} epochs")
     best_val_loss = float('inf')
-    patience = 5  # Early stopping patience
-    no_improve = 0  # Counter for early stopping
+    patience = 7  # Increased patience for complex model
+    no_improve = 0
     
     for epoch in range(num_epochs):
         print(f"\nEpoch {epoch + 1}/{num_epochs}")
@@ -137,7 +137,7 @@ def train(
             model_path = output_dir / f"{model_name}_best.weights.h5"
             model.save_weights(str(model_path))
             print(f"\nSaved best model to {model_path}")
-            no_improve = 0  # Reset counter
+            no_improve = 0
         else:
             no_improve += 1
             if no_improve >= patience:

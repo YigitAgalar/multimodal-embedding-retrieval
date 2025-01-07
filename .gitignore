@@ -37,7 +37,9 @@ venv.bak/
 .DS_Store
 
 # Project specific
+data/
 data/cache/
+outputs/
 wandb/
 *.weights.h5
 *.h5
@@ -52,6 +54,26 @@ wandb/
 *.pickle
 *.arrow
 *.arrow.zstd
+
+# Large media files
+*.mp4
+*.tiff
+*.avi
+*.flv
+*.mov
+*.wmv
+
+# Model outputs and metrics
+outputs/
+metrics/
+logs/
+checkpoints/
+*.log
+model_weights/
+saved_models/
+*.weights
+*.pt
+*.onnx
 
 # Jupyter Notebook
 .ipynb_checkpoints

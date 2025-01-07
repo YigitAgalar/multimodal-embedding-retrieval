@@ -37,8 +37,20 @@ venv.bak/
 .DS_Store
 
 # Project specific
+data/
 data/cache/
 wandb/
+*.weights.h5
+*.h5
+*.weights
+*.ckpt
+*.pth
+*.model
+*.tfrecords
+*.npy
+*.npz
+*.pkl
+*.pickle
 
 # Jupyter Notebook
 .ipynb_checkpoints
